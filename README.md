@@ -24,7 +24,7 @@ While not specifically designed for statistics, a number of packages have been d
 While slightly more complex to learn than graphical methods such as JASP, doing analyses in Python can be more flexible.
 
 The setup for Python is a bit more complicate than JASP, as we will need several packages in addition to the Python language itself.
-The reccomended approach is to download the [Anaconda Distribution](https://www.anaconda.com/download) which will provide most of what we need in this course.
+The recomended approach is to download the [Anaconda Distribution](https://www.anaconda.com/download) which will provide most of what we need in this course.
 
 ### GitHub Desktop
 
