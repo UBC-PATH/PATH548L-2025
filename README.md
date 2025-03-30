@@ -5,11 +5,7 @@ Welcome to the software page for UBC Pathology 548L.
 ## Software
 
 We will cover the use of two different software packages for statistical analysis in this course.
-
-### GitHub Desktop
-
-Course material related to statistical analysis will be distributed from this git repository.
-If you are new to git we suggest downloading the [GitHub Desktop](https://desktop.github.com/download) which is available for Mac and Windows.
+To share the code we will be using [git](https://git-scm.com).
 
 ### JASP
 
@@ -29,3 +25,8 @@ While slightly more complex to learn than graphical methods such as JASP, doing 
 
 The setup for Python is a bit more complicate than JASP, as we will need several packages in addition to the Python language itself.
 The reccomended approach is to download the [Anaconda Distribution](https://www.anaconda.com/download) which will provide most of what we need in this course.
+
+### GitHub Desktop
+
+Course material related to statistical analysis will be distributed from this git repository.
+If you are new to git we suggest downloading the [GitHub Desktop](https://desktop.github.com/download) which is available for Mac and Windows.
