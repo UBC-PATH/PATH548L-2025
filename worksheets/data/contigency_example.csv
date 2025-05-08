@@ -1,0 +1,5 @@
+treatment,relapse,count
+n,n,20
+n,y,15
+y,n,20
+y,y,10
