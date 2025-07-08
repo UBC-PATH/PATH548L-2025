@@ -1,0 +1,244 @@
+---
+title: "Data wrangling"
+author: "Andrew Roth"
+date: "2024-05-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In many cases you will need to do some manipulation to your data format before working with it.
+For example, generating plots in ggplot assumes your data is in [tidy](https://r4ds.had.co.nz/tidy-data.html) data format.
+Essentially this means each column represents one type of thing.
+In this tutorial we will work through some manipulations that frequently need to be done.
+
+## Tidying data
+
+Let's start by generating some fake data to work with.
+Don't worry about the code for creating the data, just focus on the structure of the data for now.
+
+```{r}
+mice_wide <- data.frame(
+  id=sapply(1:50, function(x) paste("m", x, sep="")),
+  pre=rnorm(10, 1, n=50),
+  post=rnorm(12, 1, n=50),
+  sex=c(rep("f", 25), rep("m", 25))
+)
+
+head(mice_wide)
+```
+
+Our fake data has four columns:
+
+- id - Unique identifier of the mouse.
+- pre - Weight of the mouse before treatment.
+- post - Weight of the mouse after treatment.
+- sex - Sex of the mouse.
+
+Now let's suppose we want to do some exploratory data analysis.
+The first thing we might want to do is visualize if there is a differnce in weight pre and post treatment.
+The challenge here is that our data is not in a format that ggplot can handle.
+Say we wanted to do a boxplot.
+Then we need an x column to separate the boxes and a y column for the weights.
+Currently our data is in a wide format because we have weights from different times represented in different columns.
+We are going to "tidy" our data so there is only one column for weight.
+
+Here we will use a package called `tidyr` which is part of the tidyverse.
+Let's first load the package.
+
+```{r}
+library(tidyr)
+```
+
+Now we will use a function `pivot_longer` which will help us put the data into long tidy form.
+The `pivot_longer` function effectively adds rows to our data frame by stacking some of the columns.
+It is easier to see than explain.
+
+```{r}
+mice_long <- pivot_longer(mice_wide, c("pre", "post"))
+head(mice_long)
+```
+
+Our new data frame now has a different set of columns:
+- id - Unique mouse identifier as before
+- sex - Mouse sex as before
+- name - Which has the name of the columns from the original dataset
+- value - Which has the corresponding value for column in with `name`
+
+What we have done is told R to stack the pre and post columns together to "tidy" our data.
+We can see our new dataset has more rows.
+
+```{r}
+nrow(mice_wide)
+nrow(mice_long)
+```
+
+Now the default names for the new column of "name" and "value" are not very descriptive.
+We can fix them by passing some optional values to `pivot_long`.
+
+```{r}
+mice_long <- pivot_longer(mice_wide, c("pre", "post"), names_to="timepoint", values_to="weight")
+head(mice_long)
+```
+
+Now the column names are more descriptive.
+Before plotting let's do a bit more cleanup here and let R now we have factors.
+
+```{r}
+mice_long$id <- factor(mice_long$id)
+mice_long$sex <- factor(mice_long$sex)
+mice_long$timepoint <- factor(mice_long$timepoint, levels=c("pre", "post"))
+head(mice_long)
+```
+
+I have made the id, sex and timepoint columns.
+I also specified the order of the timepoints since pre can be thought of as before post.
+
+Let's try an exploratory boxplot to see if treatment has and effect.
+
+```{r}
+library(ggplot2)
+
+ggplot(mice_long, aes(x=timepoint, y=weight)) + geom_boxplot()
+```
+
+Looks like there is an effect!
+We can also consider the sex as part of this.
+
+```{r}
+ggplot(mice_long, aes(x=timepoint, y=weight, fill=sex)) + geom_boxplot()
+```
+
+We can also use the `facet_grid` feature from ggplot to do this sort of visualization.
+
+```{r}
+ggplot(mice_long, aes(x=timepoint, y=weight)) + 
+  geom_boxplot() + 
+  facet_grid(~sex)
+```
+
+Here we add the `facet_grid` onto our plot.
+The argument to `facet_grid` specifies how things should be laid out.
+It use the R syntax for formulas i.e. `y ~ x`.
+For facet grids the the variable for the rows comes before the `~` and the variable for column after the `~`.
+Let's see another example where we do row and column.
+
+```{r}
+ggplot(mice_long, aes(x=weight)) + 
+  geom_histogram(bins=10) + 
+  facet_grid(timepoint~sex)
+```
+
+## Going from long to wide
+
+Tidy data is the format you will use when working with ggplot and other parts of the tidyverse.
+However, it is sometimes useful to have your data in wide format.
+You can move from tidy/long format to wide format using `pivot_wider` function.
+
+```{r}
+mice_wide_again <- pivot_wider(mice_long, names_from=timepoint, values_from=weight)
+head(mice_wide_again)
+```
+
+For example we might want to do a t-test comparing pre/post treatment.
+We can use the builtin R function `t.test` to do this.
+The `t.test` functions takes two arguments, each vectors corresponding to the two sets of observations we want to compare.
+Let's try:
+
+```{r}
+t.test(mice_wide_again$pre, mice_wide_again$post)
+```
+
+We could have accomplished the same thing if we kept the data in long/tidy format.
+It would require we use the R indexing though.
+Below we select all weights from the pre-treatment timepoint.
+
+```{r}
+mice_long[mice_long$timepoint == "pre", "weight"]
+```
+
+We can use this idea to do our t-test.
+
+```{r}
+t.test(
+  mice_long[mice_long$timepoint == "pre", "weight"],
+  mice_long[mice_long$timepoint == "post", "weight"]
+  )
+```
+
+> Either way of doing the compuation works.
+Do what ever you feel most comfortable.
+One tip is to use a consistent style when you write code.
+So if you decide to go the pivot_wider route, do that consistently in your code.
+
+## Manipulating values
+
+In the plotting tutorial we did some work to replace the sex variable which started as integer with Male/Female labels.
+The solution I gave there used builtin R functionality.
+Here we will explore a different approach to replacing values that is a bit more elegant.
+We will use the `dplyr` library which is another piece of the tidyverse.
+In general you can think of `dplyr` as an enhanced way to to manipulate your data in place of things you could with R indexing.
+
+Let's try an example where we replace pre/post with before/after in our timepoint column.
+
+First we load `dplyr`.
+
+```{r}
+library(dplyr)
+```
+
+Now we can do the replacement using the `mutate` and `recode` functions from `dplyr`.
+
+```{r}
+mutate(
+  mice_long, 
+  timepoint=recode(timepoint, "pre"="before", "post"="after")
+  )
+```
+
+The `mutate` function serves to alter the values in a dataset.
+Here we specify the column, timepoint, we want to alter and tell `mutate` that we want to alter it with `recode`.
+
+Often when you look up examples using the tidyverse and `dplyr` in particular you will see them using the pipe operator `%>%`.
+The pipe operator is useful when stringing multiple transformations of the data together.
+To understand imagine your code looks like `a %>% some_func(arg_1=TRUE)`.
+What this says is pass the variable `a` into the function `some_func` as the first argument.
+I am also passing the additional argument `arg_1` to `some_func`.
+Let's take a look at a concrete example where we use `mutate` like before.
+
+```{r}
+mice_long %>% 
+  mutate(
+    timepoint=recode(timepoint, "pre"="before", "post"="after")
+    )
+```
+
+We get the same result as when we explicitly pass in the `mice_long` data frame to `mutate`.
+The utility of pipes in propobably not obvious from this simple example, but when you do multiple transformations it can be helpful.
+For more information checkout the [R for Data Science](https://r4ds.had.co.nz/pipes.html) manual.
+
+Let's try a more complicated example.
+In the next block of code I will do the following:
+- Rename the values of the timepoint column using `mutate`
+- Group the rows based on the value of timepoint
+- Compute the mean weight of the groups
+This will return a new data frame with two columns timepoint and mean_weight.
+The name mean_weight is specified by us.
+
+```{r}
+mice_long %>% 
+  mutate(timepoint=recode(timepoint, "pre"="before", "post"="after")) %>% 
+  group_by(timepoint) %>% 
+  summarise(mean_weight=mean(weight))
+```
+
+Pipes and `dplyr` are a bit complex.
+If you do not completely understand that is fine.
+You do everything you need to in this course without them.
+I am mainly explaining them so you can understand some of the solutions you will find online.

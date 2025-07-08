@@ -1,0 +1,150 @@
+---
+title: "Missing values"
+author: "Andrew Roth"
+date: "2024-06-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Motivation
+
+A common issue in data analysis is that some values will be missing.
+For example, when doing patient cohort studies entries in a survey may be left blank by some members of the study.
+As another example, when dealing with clinical records entries may not have been filled in on some days because the staff forgot.
+
+The first consideration when dealing with missigness is whether the missing values are missing due to systematic reason or it is random.
+An example of a systematic reason, would be failure to collect information for patients that go to sick during a drug trial.
+Random missingness on the other hand happen in the example above when staff occassionally leave an entry blank.
+
+The approaches we will discuss for dealing with missing values typically assume missing at random.
+Thus before applying these approaches it is important to think carefully about whether that assumption holds.
+You should also report that you assumed data was missing at random if so.
+It is also good practice to check whether the approach used for dealing with missingness impacts your results.
+
+## Simple strategies
+
+### Setup
+
+First we will create some a toy dataset with missing values.
+I will use the builtin airquality R dataset and add missing values.
+
+```{r}
+# Reassign the dataset so we can see it in RStudio
+df <- airquality
+# Check how many entries we have
+nrow(df)
+# Get some summary info about the data columns
+summary(df)
+```
+
+From the summary we can see that two columns, Ozone (NA=37) and Solar.R (NA=7), have missing values.
+
+### Removing missing values
+
+Given the size of the dataset n=153 we could potentially remove observations with missing values in these columns.
+For Solar.R that is probably okay, as it is small fraction of the data.
+But for Ozone it would be challenging, as it is more thant 20% of the data.
+
+Let's take a look at how we could remove rows with missing values for Solar.R
+
+```{r}
+df <- df[!is.na(df$Solar.R),]
+nrow(df)
+summary(df)
+```
+
+We use the `is.na` function to find out if an entry of the Solar.R column is missing.
+We then filter for the rows where values are not missing using the not `!` operator.
+The code `df[!is.na(df$Solar.R),]` cases give us all rows of `df` where Solar.R is not missing.
+
+As we can see from the summary there are no more missing values in Solar.R and our dataset has shrunk in size.
+
+### Simple imputation
+
+A common approach to dealing with missing values is to impute them.
+There are many strategies, in fact an entire field of statistics that thinks about this.
+The simplest strategies are to replace the values with some summary statistic.
+For continuous values the mean or median is often used.
+For discrete values the mean doesn't really make sense, as it usually won't be an integer.
+So for discrete values, usually the median or sometimes the mode (most often occurring value is used).
+The mode is also a reasonable choice for categorical values.
+
+I will use the median for Ozone.
+
+In the following code I assign all missing entries of Ozone to the median value of the observed entries.
+
+```{r}
+df$Ozone[is.na(df$Ozone)] <- median(df$Ozone, na.rm=TRUE)
+summary(df)
+```
+
+### Advanced imputation
+
+The key weakness of the simple imputation strategy we used is that it ignores the values of other observed variables in a row.
+More sophisticated imputation strategies will leverage these observations to make a more sophisticated imputation.
+I will illustrate one more advanced approach for imputation using the `mice` package from R.
+However, I am not endorsing this as the only or even best way.
+Depending on the type of data you have in your columns i.e. categorical, ordinal, continuous you will want to pick wisely.
+At this stage it would be worth consulting a statistician before proceeding.
+
+Disclaimer aside, let's use `mice` to impute.
+I am going to reload the data so we get the missing values back.
+
+```{r}
+library(mice)
+
+df <- airquality
+summary(df)
+```
+
+One nice feature of `mice` is that you visualize the "pattern" of missing values.
+
+```{r}
+md.pattern(df)
+```
+
+From this we can see there are 35 rows missing only Ozone, 5 rows missing only Solar.R and 2 rows missing both.
+
+Now, let's do the imputations using the `mice` function.
+
+```{r}
+imp <- mice(df, m=5, method="pmm")
+summary(imp)
+```
+
+The `mice` function actually returns an imputation object.
+To get the imputed data frame we need to use the `complete` command, passing the imputed object.
+
+```{r}
+df_imp <- complete(imp)
+summary(df_imp)
+```
+
+No we see that there are no missing values in either Ozone or Solar.R.
+
+Finally, we will check that the imputation has not drastically changed the characteristics of our data.
+To do so we will look at a plot of the density of Ozone values before and after imputation.
+
+In the code below I create a new data frame for the plotting and use ggplot to plot densities.
+
+```{r}
+library(ggplot2)
+
+df_plot <- data.frame(
+  value=c(df$Ozone, df_imp$Ozone), 
+  imputed=factor(c(rep(0, nrow(df)), rep(1, nrow(df_imp))))
+)
+ggplot(df_plot, aes(x=value, fill=imputed)) + geom_density(alpha=0.4)
+```
+
+We see that unimputed and imputed data have very similar distributions for the Ozone variable.
+Importantly the peaks are in the same place, and the tails have not shifted drastically.
+
+You can also use `mice` to impute categorical variables using the same procedure as above.
+Just remember to use `factor` to let R now that your variables are categorical.
+

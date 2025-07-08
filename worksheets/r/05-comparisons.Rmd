@@ -1,0 +1,155 @@
+---
+title: "Comparisons"
+author: "Andrew Roth"
+date: "2024-05-21"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The next step in our R journey is to look at how to do comparison of groups.
+We have already seen one example using the `t.test` function.
+Here we will go into a bit more depth.
+This will be a relatively short tutorial, since performing the tests is straightforward.
+The hard part will be wrangling the data which we have already covered.
+
+## Setup
+
+First let's load the libraries we will need.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+We will use the diabetes data again.
+Let's load it up.
+
+```{r}
+my_data <- read.csv("/home/andrew/Desktop/path/Diabetes_Full.csv")
+head(my_data)
+```
+
+Let's do the data cleanup to get our factors setup.
+
+```{r}
+my_data$Random.Blood.Glucose.Binary <- factor(
+  my_data$Random.Blood.Glucose.Binary, levels=c("Low", "High")
+  )
+my_data$Random.Blood.Glucose.Ordinal <- factor(
+  my_data$Random.Blood.Glucose.Ordinal, levels=c("Low", "Medium", "High")
+  )
+my_data$Sex <- as.character(my_data$Sex)
+my_data <- mutate(my_data, Sex=recode(Sex, "1"="male", "2"="female"))
+my_data$Sex <- factor(my_data$Sex)
+```
+
+## Two group comparison
+
+Let's suppose we want to divide our data into low/hi glucose groups and see if there are any statistical differences.
+Let's consider HDL first and do an exploratory plot.
+
+```{r}
+ggplot(my_data, aes(x=Random.Blood.Glucose.Binary, y=HDL)) + geom_boxplot() + geom_point()
+```
+
+It looks like there is a difference between groups.
+The data also looks normal based on the symmetry of inter-quartile ranges.
+This might be easier to see with histograms though.
+
+```{r}
+ggplot(my_data, aes(x=HDL)) + 
+  geom_histogram(bins=20) + 
+  facet_grid(~Random.Blood.Glucose.Binary)
+```
+
+This looks a bit dubious with a lot of outlying values.
+At this point we could do a test of normality.
+Let's use the Shapiro-Wilk test on each group.
+We will use `dplyr` and pipes to do this.
+
+```{r}
+my_data %>% 
+  group_by(Random.Blood.Glucose.Binary) %>% 
+  summarise(shapiro.test(HDL)$p.value)
+```
+
+The p-value for both groups is <0.05 suggesting the data is not normal.
+
+Let's ignore this for a second and try a t-test though.
+
+```{r}
+t.test(
+  my_data[my_data$Random.Blood.Glucose.Binary == "Low", "HDL"], 
+  my_data[my_data$Random.Blood.Glucose.Binary == "High", "HDL"]
+  )
+```
+
+So our p-value is <0.001 which suggests a significant difference.
+But we do not think the data is normally distributed, so it would be more appropriate to use a non-parametric test.
+Let's try a Wilcoxon test.
+
+```{r}
+wilcox.test(
+  my_data[my_data$Random.Blood.Glucose.Binary == "Low", "HDL"], 
+  my_data[my_data$Random.Blood.Glucose.Binary == "High", "HDL"]
+  )
+```
+
+Our p-value is still <0.001 with the non-parametric, so there appears to be a significant difference.
+This is a fairly large dataset, so even with the loss of power using a non-parametric test we can still detect an effect.
+
+Let's test some other columns for a difference.
+I'll do this manually and repeat a lot of code.
+There is a better way, but let's keep the example simple.
+```{r}
+p_hdl <- wilcox.test(
+  my_data[my_data$Random.Blood.Glucose.Binary == "Low", "HDL"], 
+  my_data[my_data$Random.Blood.Glucose.Binary == "High", "HDL"]
+  )$p.value
+p_ldl <- wilcox.test(
+  my_data[my_data$Random.Blood.Glucose.Binary == "Low", "LDL"], 
+  my_data[my_data$Random.Blood.Glucose.Binary == "High", "LDL"]
+  )$p.value
+p_bmi <- wilcox.test(
+  my_data[my_data$Random.Blood.Glucose.Binary == "Low", "BMI"], 
+  my_data[my_data$Random.Blood.Glucose.Binary == "High", "BMI"]
+  )$p.value
+p_tch <- wilcox.test(
+  my_data[my_data$Random.Blood.Glucose.Binary == "Low", "TCH"], 
+  my_data[my_data$Random.Blood.Glucose.Binary == "High", "TCH"]
+  )$p.value
+my_pvals <- c(p_hdl, p_ldl, p_bmi, p_tch)
+my_pvals
+```
+
+All look significant.
+But wait, we just did multiple tests, so we should multiple test correct.
+We can use the `p.adjust` function for this.
+This function requires a vector of p-values as the a mandatory argument which is why I create the `my_pvals` variable.
+Let's see what happens using the Bonferroni correction.
+
+```{r}
+p.adjust(my_pvals, method="bonferroni")
+```
+
+The p-values have increased but they are all less than <0.05.
+In fact only the value for LDL is >0.001.
+
+We could try a different adjustment as well.
+Let's use the Benjamini & Hochberg correction.
+
+```{r}
+p.adjust(my_pvals, method="BH")
+```
+
+The changes are less dramatic than using the Bonferroni corrections.
+This is typical as the BH correction controls a slightly different type of error and generally has more power for multiple testing.
+
+> This is not meant to advocate for any given correction, just to show how to perform them!

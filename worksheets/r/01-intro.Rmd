@@ -1,0 +1,344 @@
+---
+title: "Introduction"
+author: "Andrew Roth"
+date: "2024-04-24"
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The R ecosystem
+
+### R
+
+R is a programming language originally developed for doing statistical analysis.
+R is different than many other statistics software packages such as JMP, SPSS, Excel etc. as it requires writing code or programming instead of clicking through a graphical interface.
+The downside, is that there is a learning curve when starting to use R.
+The upside, is that R can be significantly more powerful than other tools.
+For example, if you write code to do an analysis on one data set and produce plots, it is trivial to reuse your code and do the same analysis on a new dataset.
+
+R provides an environment to execute code and some built in functionality for analyzing data.
+Later we will see how to extend the basic built in capabilities of R using *libraries*.
+
+By default there are two ways to work with R and write code.
+
+1.  The first way is to work interactively with the R interpreter.
+    When doing this you will type commands one after the other into a terminal and run them sequentially.
+    This can be great for testing out new functions or quickly doing something with the data.
+    You can save pieces of information from you session using the `save` function.
+    You can also save the entire *workspace* using the `save.image` function.
+    \> When working interactively you can use the tab button to autocomplete commands and the up arrow to see the previous command.
+
+2.  The second way to work with R is to write *scripts* which are text files with contain code.
+    In practice this is the preferred way to work with R as you can easily rerun any analysis you have performed.
+
+Over time a lot of additional tools have been developed to make using R easier.
+
+### R Studio
+
+For example, [RStudio](https://posit.co/products/open-source/rstudio/) is an integrated development environment that makes writing R code and working with data easier.
+RStudio has a lot of functionality and we won't cover it all.
+Starting out one of the biggest strengths of RStudio is the ability to run pieces of your script interactively.
+This allows you to blend the two standard ways of working with R so you can write code in your script run it in the terminal and then write some more code in your script.
+This approach makes it easy to incrementally write a full analysis.
+
+### R Markdown
+
+Another example is [R Markdown](https://rmarkdown.rstudio.com/) which is a tool which allows you to combine text and code to form "runnable" documents.
+R Markdown can be a great way to write reports, as the code for doing all the analysis is included in the document.
+
+This tutorial is written in R Markdown.
+
+## Getting started with R
+
+Let's start with a simple example of R code that adds 2 + 2 and stores it in a *variable*.
+
+```{r}
+x <- 2 + 2
+print(x)
+```
+
+We have done three things here.
+
+1.  We added 2 and 2 together.
+2.  We have saved the result into a variable called `x`
+3.  We have printed out the result.
+
+The idea of storing something in a variable is one of fundamental concepts in programming.
+In the previous example the value stored in our variable was a simple number.
+In practice you will be storing more complex things in variables.
+In programming terms these more complex things are often referred to as *objects*.
+The most import type of *class* of object you will work with in R is the *data frame*.
+
+A data frame is basically a table that you can interact with in R.
+A data frame has rows and columns.
+Typically each row in a data frame corresponds to an observation e.g. a mouse you have observed.
+Each column in a data frame then corresponds to some feature of the observation you have recored e.g. sex, weight, treatment.
+All values for a given column must be of the same type i.e. weight is a number.
+However, each column can store a different type of data.
+
+Below we show an example of a data set stored in a data frame.
+This data set describes features of different car models is builtin to R so we do not need to load it.
+
+```{r}
+print(mtcars)
+```
+
+The above code prints out the entire dataset.
+If your data set is big, you usually do not want to do this.
+However, it is often useful to see the first few rows of the data to see what columns you have and what values they take, or to make sure your data got loaded correctly into R.
+The `head` function allows you to see the first few rows of your data frame.
+
+```{r}
+head(mtcars)
+```
+
+There is also a `tail` function that lets you look at the last few rows.
+
+```{r}
+tail(mtcars)
+```
+
+Basic statistics can be obtained using the `summary` function.
+
+```{r}
+summary(mtcars)
+```
+
+You can also compute the statistics individually for specific columns.
+For example the following code gets the mean of the mpg column.
+
+```{r}
+mean(mtcars$mpg)
+```
+
+> In the previous example we introduce a new notation the `$` *operator* which allows us to access a column of a data frame.
+
+There are a number of other built in functions such as `range` and `quantile`.
+Let's take a look at the `quantile` function.
+
+```{r}
+quantile(mtcars$mpg)
+```
+
+By default quantile will report the 0%, 25%, 50%, 75% and 100% quantiles (percentiles?).
+What if you want different quantiles?
+We can look into the documentation for the `quantile` function.
+R has quite a good documentation built in.
+You can access it with the `?` operator.
+
+> You can also just search the web :)
+
+For example to get help for the `quantile` operator we would do the following.
+
+```{r}
+?quantile
+```
+
+The documentation reveals that `quantile` takes one mandatory *argument* and several optional arguments.
+If we want different quantiles we would need to change the optional probs argument.
+Let's get the 33% and 66% percentiles.
+
+```{r}
+quantile(mtcars$mpg, probs=c(0.33, 0.66))
+```
+
+We have introduced another new function, `c`, which is the combine function.
+This function will take a collection of values and combine them into a *vector*.
+Vectors are another class of objects in R, which store a one dimensional collection of items.
+Columns in a data frame are actually vectors themselves (**Andy is 90% sure of this**).
+
+Let us try using `c` to make a vector.
+
+```{r}
+y <- c(1, 10, 42)
+print(y)
+```
+
+In the previous example all the items we combined were of the same type, numbers.
+We can see this using the `class` function.
+
+```{r}
+class(y)
+```
+
+What happens if we combine different types into a vector?
+In the next example we will combine some numbers and some "strings".
+
+```{r}
+z <- c(1, "a", 42, "Andy")
+class(z)
+```
+
+You will see that the vector we created `z` has type character.
+When programming the concept of type is quite important.
+Variables have types, the type of a variable can impact how or even if a function works with a variable.
+
+```{r}
+mean(z)
+```
+
+Programming languages generally have a hierarchy of types which goes from most specific to most general.
+In the previous example because we combined numbers and strings R a decided to make the vector of the type character (string).
+This can cause unexpected behaviour sometimes.
+Let's look at the first value of our vector `z`.
+
+```{r}
+z[1]
+```
+
+We can see that the number 1 now has quotation marks around it indicating it is a string.
+
+In the previous example we have done something new, specifically accessing a specific element of a vector by its numbered position.
+This is done using the `[]` syntax.
+
+> R uses one based indexing i.e. the first element of a vector is 1.
+This differs from some other programming languages which use 0.
+
+We can use the a similar same syntax access elements in a data frame.
+For example if we want the first row we could do the following.
+
+```{r}
+mtcars[1,]
+```
+
+Unlike a vector, a data frame is two dimensional so we use a `,` with the `[]` syntax to access different dimensions.
+If we wanted to get the third column from the second row we would do the following.
+
+```{r}
+mtcars[2, 3]
+```
+
+We had previously accessed the column by name using `mtcars$mpg`.
+Both numerical and named indexing can be useful, but generally you will use named indexing which is less error prone.
+We could achieve the same things as the previous code using named indexing as follows.
+
+```{r}
+mtcars$disp[2]
+```
+
+The `colnames` function lets you see the names of the columns.
+
+```{r}
+colnames(mtcars)
+```
+
+Rows can also have names in a data frame, and we can see them using the `rownames` function.
+
+```{r}
+rownames(mtcars)
+```
+
+We can also access rows by name.
+
+```{r}
+mtcars["Mazda RX4",]
+```
+
+And we can get specific elements by row and column name.
+
+```{r}
+mtcars["Porsche 914-2", "gear"]
+```
+
+Finally we can get multiple items using the `[]` syntax and the `c` function.
+
+```{r}
+mtcars["Porsche 914-2", c("gear", "mpg")]
+```
+
+### Packages and libraries
+
+Often you will want to get some additional functionality that is not built into R.
+This where packages can be useful.
+A package is additional code someone has written that you can install and use.
+Most often you will install packages from [CRAN](https://cran.r-project.org/).
+
+We will install the `EnvStats` package which provides the `summaryFull` function to compute a richer set of descriptive statistics.
+You can install packages from CRAN using the `install.packages` function.
+You can also install packages using RStudio which might be slightly easier when you are starting out.
+
+Once you have the package installed you will need to load using the it `library` function before you can use the functions it provides.
+
+```{r}
+library(EnvStats)
+```
+
+Now we can use the `summaryFull` command.
+
+```{r}
+summaryFull(mtcars)
+```
+
+When we move onto plotting we will need some libraries, in particular `ggplot`.
+There is a collection of tools caled the [tidyverse](https://www.tidyverse.org/) which includes `ggplot` and other useful packages like `dplyr`.
+
+### Loading data
+
+So far we have been working with a toy data set built into R.
+But in practice you will want to use your own data sets.
+The first step we need to tackle is loading data into R.
+There are several functions to help with this depending on the file format you store your data in.
+If you are working in the lab it is likely you are using a spreadsheet program like Excel.
+Excel files can be loaded into R and we will see how in a second.
+But it is useful to note that a lot of data is often stored in another format called a `csv` file, which stands for comma separated values file.
+The key difference between a csv file and the standard format Excel uses is that the csv only contains your data.
+An Excel file will store your data, but also lots of other information like any formulas or colouring you have done.
+You can easily export to csv files from Excel and similar programs, **but only your data will be exported**.
+So if you are doing more than keeping data, than Excel's default format is fine.
+
+The point of the long discussion above is that R has built in support for reading csv files, because they are simple.
+For using other formats you might need to install additional packages.
+
+Let's start by loading a file saved in csv format.
+We will use the diabetes dataset from out last lecture which we converted to csv.
+
+```{r}
+diabetes <- read.csv("/home/andrew/Desktop/path/Diabetes_Full.csv")
+head(diabetes)
+```
+
+The previous code reads the data in our file using the `read.csv` function and stores the resulting data frame into a variable called `diabetes`.
+Next we use `head` to look at the first few rows and make sure everything loaded correctly.
+
+Now it is good practice to determine what type of values R thinks are stored in each column.
+We can use `typeoff` to see the exact type R believes each column is.
+Let's try this on one column first.
+
+```{r}
+typeof(diabetes$BMI)
+```
+
+Now we could go through head column and check their type by running the above code with each column name.
+But this would really tedious.
+This is where using a programing language can be helpful as we can automate that tasks.
+We are going to use the `sapply` function which go through each column and `apply` a specified function to it.
+
+```{r}
+sapply(diabetes, typeof)
+```
+
+Without knowing a lot about this data, it seems like most values are what you would expect.
+
+We see the types:
+
+- integer - Which is a number like 1, 2, 3, -1, 0 etc
+
+- double - Which is decimal number like 3.45
+
+- character - Which is letters are text
+
+One potential issue is that R believes sex is an integer.
+Another issue is that there binary and ordinal blood glucose columns which R thinks are characters.
+We will see later how to let R know that we expect columns to be of a certain type.
+This will become important when we start plotting items.
+For now the key concept to understand is that there are types and they impact the way R treats your data.
+
+

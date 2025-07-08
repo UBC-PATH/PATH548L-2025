@@ -1,0 +1,153 @@
+---
+title: "Survival analysis"
+author: "Andrew Roth"
+date: "2024-06-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Motivation
+
+One of the more common analyses in biomedical applications is survival or time to failure analysis.
+Such analyses are useful when considering how a perturbation impacts the time it takes for an event to occur.
+For example, we could ask whether giving mice a drug increases the time to develop tumours.
+There are two key variables in all survival analysis data.
+
+- time - The time that a subject has been observed until. This can be time until the event occurred, or if the event doesn't occur time that a subject was followed before the study ended.
+- censor - Whether the observation has been censored. This essentially indicates whether an even has happened or not for a given subject. Typically the data will right censored because a study ends and for example some patients are alive. In this case we would indicate they are censored.
+
+Additional variables relevant to the study will also be included.
+The goal of survival analysis is then to determine if these variables are associated with survival.
+
+## Univariate survival (Kaplan-Meier curves)
+
+First we will consider only a single study variable.
+The most common way to analyse such data is to use Kaplan-Meier curves.
+
+First, we will load some libraries for survival analysis and plotting.
+
+```{r}
+library(ggplot2)
+library(survival)
+```
+
+We will use the veteran dataset provided by the `survival` package.
+
+```{r}
+df <- veteran
+summary(df)
+```
+
+Here status means censoring status or whether an event has occurred.
+The encoding is 0 means no event (censored) and 1 means an event (not censored).
+We can look at the number of such entries using the `table` command.
+
+```{r}
+table(df$status)
+```
+
+We see there are only 9 censored (0) values in this dataset.
+
+Now we will fit the Kaplan-Meier curve.
+
+```{r}
+km_fit <- survfit(Surv(time, status) ~ 1, data=df)
+```
+
+To do the actual fitting we create a `Surv` object and pass it to the `survfit` function.
+The `survfit` function the returns the fitted KM curve object.
+The `Surv` function requires the column names for time and censoring, in this case `time` and `status`.
+For the `survfit` we pass in a formula where the `Surv` objects serves as the y and in this case nothing is used as x indicated by `~`.
+Said another way, we are building the overall survival curve independent of any variables in the dataset.
+
+Next we can look at a summary of the survival curve.
+
+```{r}
+summary(km_fit, times = c(1, 30, 60, 90*(1:10)))
+```
+
+Here we have passed the fitted curve, and a vector of times we wish to extract information about the curve from.
+
+Now we can plot the survival curve using the `ggsurvfit` package which adds survival function support to ggplot.
+
+```{r}
+library(ggsurvfit)
+
+ggsurvfit(km_fit) +
+  labs(
+    x = "Days",
+    y = "Overall survival probability"
+  ) +
+  ylim(0, 1)
+```
+
+So far we have only considered the overall survival, but typically we would want to consider how some variable impacts survival.
+Let's take a look at the treatment column `trt`, which has two values 1-standard and 2-test.
+
+Like before we build the survival curve object, but now we alter the formula to indicate we want to vary by treatment.
+We will also do a quick cleanup and make `trt` a factor before doing this.
+One other minor thing, is to get plotting to play nice with our outputs we use the `survfit2` function provided by `ggsurvfit` now.
+
+```{r}
+df$trt <- factor(df$trt, levels=c(1, 2))
+
+km_fit <- survfit2(Surv(time, status) ~ trt, data=df)
+
+ggsurvfit(km_fit) +
+  labs(
+    x = "Days",
+    y = "Overall survival probability"
+  ) +
+  ylim(0, 1)
+```
+
+Now we see separate curves for each treatment group.
+
+We can also add p-values and confidence intervals to the plot.
+
+```{r}
+ggsurvfit(km_fit) +
+  add_pvalue(location="annotation") +
+  add_confidence_interval() +
+  labs(
+    x = "Days",
+    y = "Overall survival probability"
+  ) +
+  ylim(0, 1)
+```
+
+## Multivariable survival
+
+Often we want to consider whether a variable of interest is independently prognostic from other variables.
+In this case we can use the Cox proportional hazard model.
+Roughly, the Cox model is the survival equivalent of doing multivariable logistic regression.
+
+Let's consider treatment, age and cell type our analysis.
+The code is similar to before, but now we use the `coxph` function for curve fitting.
+
+```{r}
+df$celltype <- factor(df$celltype)
+
+cox <- coxph(
+  Surv(time, status) ~ trt + age + celltype, 
+  data=df
+  )
+summary(cox)
+```
+
+We can generate a forest plot of the hazard ratios for the coefficients using the `survminer` library.
+
+```{r}
+library(survminer)
+
+ggforest(cox, data=df)
+```
+
+From this the treatment does appear to have an effect.
+However, cell type of the cancer does.
+In particular, smallcell and adeno cell types impose a higher risk versus the reference class of squamous.
